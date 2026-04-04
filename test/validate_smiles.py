@@ -7,8 +7,8 @@ from rdkit import Chem
 from src.load_data import Dataset
 
 dataset = Dataset(
-  image_dir="data/test/images",
-  label_path="data/test/labels.csv"
+    image_dir="data/test/images",
+    label_path="data/test/labels.csv"
 )
 
 valid_count = 0
@@ -17,20 +17,22 @@ invalid_examples = []
 
 # iterate through the dataset and validate each SMILES string using RDKit
 for i in range(len(dataset)):
-  _, smiles = dataset[i] 
-  mol = Chem.MolFromSmiles(smiles) # returns None if the SMILES string is invalid, otherwise returns a molecule object
+    _, smiles = dataset[i]
+    # returns None if the SMILES string is invalid, otherwise returns a molecule object
+    mol = Chem.MolFromSmiles(smiles)
 
-  if mol is not None:
-    valid_count += 1
-  else:
-    invalid_count += 1
-    invalid_examples.append(smiles)
+    if mol is not None:
+        valid_count += 1  # if invalid smiles string, but it shouldn't occur
+    else:
+        invalid_count += 1
+        invalid_examples.append(smiles)
 
 print("Total samples:", len(dataset))
 print("Valid SMILES:", valid_count)
+# should not happen but we include it incase
 print("Invalid SMILES:", invalid_count)
 
 if invalid_examples:
-  print("Invalid examples:")
-  for s in invalid_examples:
-    print(" ", s)
+    print("Invalid examples:")
+    for s in invalid_examples:
+        print(" ", s)

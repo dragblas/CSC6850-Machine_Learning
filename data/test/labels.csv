@@ -1,6 +1,6 @@
 image,smiles
-img1.png,CCO
-img2.png,c1ccccc1
-img3.png,CC(=O)O
-img4.png,CCN
-img5.png,CCOCC
+ethanol.png,CCO
+benzene.png,c1ccccc1
+acetic_acid.png,CC(=O)O
+ethylamine.png,CCN
+ether.png,CCOCC
