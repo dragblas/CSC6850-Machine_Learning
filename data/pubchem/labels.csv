@@ -1,0 +1,11 @@
+image,smiles
+img_0000.png,CC(=O)OC(CC(=O)[O-])C[N+](C)(C)C
+img_0001.png,CC(=O)OC(CC(=O)O)C[N+](C)(C)C
+img_0002.png,C1=CC(C(C(=C1)C(=O)O)O)O
+img_0003.png,CC(CN)O
+img_0004.png,C(C(=O)COP(=O)(O)O)N
+img_0005.png,C1=CC(=C(C=C1[N+](=O)[O-])[N+](=O)[O-])Cl
+img_0006.png,CCN1C=NC2=C(N=CN=C21)N
+img_0007.png,CCC(C)(C(C(=O)O)O)O
+img_0008.png,C1(C(C(C(C(C1O)O)OP(=O)(O)O)O)O)O
+img_0009.png,C1C(NC2=C(N1)NC(=NC2=O)N)CN(C=O)C3=CC=C(C=C3)C(=O)NC(CCC(=O)O)C(=O)O

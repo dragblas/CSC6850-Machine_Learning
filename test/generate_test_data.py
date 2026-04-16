@@ -1,4 +1,6 @@
 """
+creates synthetic data 
+
 This script generates a small test dataset of molecule images and their corresponding SMILES strings.
 It uses the RDKit library to create images from SMILES strings and saves them in a specified directory.
 """

@@ -1,14 +1,19 @@
 """
 Validate SMILES strings in the dataset.
+
+goes through a dataset and checks tos ee if SMILES can be parsed by RDKIT (for debugging) 
 """
 
 
 from rdkit import Chem
 from src.load_data import Dataset
+from test.utils import resolve_dataset_paths
+
+image_dir, label_path = resolve_dataset_paths()
 
 dataset = Dataset(
-    image_dir="data/test/images",
-    label_path="data/test/labels.csv"
+    image_dir=image_dir,
+    label_path=label_path
 )
 
 valid_count = 0
