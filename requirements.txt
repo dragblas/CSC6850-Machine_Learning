@@ -1,3 +1,5 @@
 pillow
 rdkit
 torchvision
+torch
+pytest

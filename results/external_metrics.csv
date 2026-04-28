@@ -1,0 +1,2 @@
+model,checkpoint,train_dataset,eval_dataset,batch_size,test_token_accuracy,exact_match,canonical_match,valid_smiles_rate,total,vocab_size,max_length,hidden_dim,embedding_dim
+CNN-GRU Sequence,sequence_baseline.pth,pubchem,epa,16,0.4039509536784741,0.0,0.0,1.0,110,41,135,512,128
