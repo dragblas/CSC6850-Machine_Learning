@@ -20,7 +20,17 @@ def parse_int_list(value):
 
 def parse_str_list(value):
     # Convert a comma-separated CLI value like "rnn,gru,lstm" into strings.
-    return [item.strip().lower() for item in value.split(",") if item.strip()]
+    allowed = {"rnn", "gru", "lstm"}
+    values = [item.strip().lower() for item in value.split(",") if item.strip()]
+
+    invalid_values = [item for item in values if item not in allowed]
+    if invalid_values:
+        raise ValueError(
+            "decoder type must be one of: rnn, gru, lstm. "
+            f"Invalid values: {invalid_values}"
+        )
+
+    return values
 
 
 def run_grid(
@@ -68,14 +78,17 @@ def run_grid(
 
 
 if __name__ == "__main__":
-    # Defaults satisfy the course requirement of testing multiple parameter
-    # values, while still allowing smaller runs from the command line.
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="pubchem")
     parser.add_argument("--learning-rates", default="0.001,0.0005,0.0001")
     parser.add_argument("--hidden-dims", default="128,256,512")
     parser.add_argument("--embedding-dims", default="128")
-    parser.add_argument("--decoder-types", default="gru")
+    parser.add_argument(
+        "--decoder-type",
+        dest="decoder_type",
+        default="gru",
+        help="Decoder type(s) to run. Use one value or comma-separated values.",
+    )
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=16)
     args = parser.parse_args()
@@ -85,7 +98,7 @@ if __name__ == "__main__":
         learning_rates=parse_float_list(args.learning_rates),
         hidden_dims=parse_int_list(args.hidden_dims),
         embedding_dims=parse_int_list(args.embedding_dims),
-        decoder_types=parse_str_list(args.decoder_types),
+        decoder_types=parse_str_list(args.decoder_type),
         epochs=args.epochs,
         batch_size=args.batch_size,
     )

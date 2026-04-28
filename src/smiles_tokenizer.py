@@ -13,7 +13,6 @@ SPECIAL_TOKENS = [PAD_TOKEN, START_TOKEN, END_TOKEN, UNK_TOKEN]
 
 
 # Keep bracketed atoms like [O-] together, and keep two-letter atoms together.
-# Everything else is treated as a single-character token.
 TOKEN_PATTERN = re.compile(r"\[[^\]]+\]|Br|Cl|.")
 
 

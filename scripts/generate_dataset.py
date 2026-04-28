@@ -1,8 +1,5 @@
 """
-Generate molecule images and labels from a raw chemical CSV.
-
-This script is used for PubChem and can also be used for EPA CompTox exports as
-long as the input CSV contains a SMILES column.
+Generate labels and/or molecule images from raw dataset files.
 """
 
 import argparse
@@ -10,136 +7,126 @@ import csv
 import os
 
 
-SMILES_COLUMN_CANDIDATES = [
-    "ConnectivitySMILES",
-    "SMILES",
-    "QSAR_READY_SMILES",
-    "QSAR-Ready SMILES",
-    "MS_READY_SMILES",
-    "MS-Ready SMILES",
-]
-
-NAME_COLUMN_CANDIDATES = [
-    "Chemical Name",
-    "PREFERRED_NAME",
-    "Preferred Name",
-    "INPUT",
-]
-
-
 DATASET_DEFAULTS = {
     "pubchem": {
         "input": "data/pubchem/raw.csv",
         "output": "data/pubchem",
-        "smiles_column": "ConnectivitySMILES",
+        "existing_images": False,
     },
     "epa": {
         "input": "data/epa/raw.csv",
         "output": "data/epa",
-        "smiles_column": "SMILES",
+        "existing_images": False,
+    },
+    "decimer": {
+        "input": "data/decimer/DECIMER_HDM_Dataset_SMILES.tsv",
+        "output": "data/decimer",
+        "existing_images": True,
     },
 }
 
 
-def resolve_column(fieldnames, requested_column, candidates):
-    """Find the requested column or fall back to common column names."""
-    if requested_column in fieldnames:
-        return requested_column
-
-    for candidate in candidates:
-        if candidate in fieldnames:
-            return candidate
-
-    raise ValueError(
-        "Could not find a usable column. "
-        f"Requested: {requested_column}. Available columns: {fieldnames}"
-    )
-
-
-def get_dataset_paths(dataset_name, input_csv=None, output_dir=None, smiles_column=None):
-    """Resolve CLI options into input/output paths for a named dataset."""
+def get_dataset_paths(dataset_name, input_path=None, output_dir=None):
+    """Resolve the input file and output folder for a dataset."""
     defaults = DATASET_DEFAULTS.get(dataset_name, {})
 
     return {
-        "input_csv": input_csv or defaults.get("input", f"data/{dataset_name}/raw.csv"),
+        "input_path": input_path or defaults.get("input", f"data/{dataset_name}/raw.csv"),
         "output_dir": output_dir or defaults.get("output", f"data/{dataset_name}"),
-        "smiles_column": smiles_column or defaults.get("smiles_column", "SMILES"),
+        "existing_images": defaults.get("existing_images", False),
     }
 
 
-def generate_dataset(input_csv, smiles_column, output_dir):
-    """Render molecule images from a CSV column containing SMILES strings."""
+def get_delimiter(input_path):
+    """Use tab-separated parsing for TSV files."""
+    return "\t" if input_path.lower().endswith(".tsv") else ","
+
+
+def resolve_smiles_column(fieldnames, requested_column=None):
+    """Use an explicit column, or default to SMILES/smiles."""
+    if requested_column:
+        if requested_column in fieldnames:
+            return requested_column
+
+        raise ValueError(
+            f"Could not find requested SMILES column: {requested_column}. "
+            f"Available columns: {fieldnames}"
+        )
+
+    if "SMILES" in fieldnames:
+        return "SMILES"
+
+    if "smiles" in fieldnames:
+        return "smiles"
+
+    raise ValueError(
+        "Could not find a SMILES column. Expected 'SMILES' or 'smiles'. "
+        f"Available columns: {fieldnames}"
+    )
+
+
+def resolve_image_column(fieldnames, smiles_column):
+    """Use the first non-SMILES column as the image id/filename column."""
+    for fieldname in fieldnames:
+        if fieldname != smiles_column:
+            return fieldname
+
+    raise ValueError("Could not find an image identifier column.")
+
+
+def get_value(row, column):
+    """Read and strip one CSV/TSV cell."""
+    value = row.get(column, "")
+    return "" if value is None else value.strip()
+
+
+def generate_dataset(input_path, smiles_column, output_dir):
+    """Draw molecule images from a CSV/TSV file containing SMILES strings."""
     from rdkit import Chem
     from rdkit.Chem import Draw
 
-    # The model expects each dataset to have an images/ folder and labels.csv.
     images_dir = os.path.join(output_dir, "images")
     labels_path = os.path.join(output_dir, "labels.csv")
-
-    # Re-running this script can reuse the folder and overwrite matching files.
     os.makedirs(images_dir, exist_ok=True)
 
-    # These counters show how much of the raw CSV was usable.
     count_total = 0
     count_valid = 0
     count_invalid = 0
 
-    with open(input_csv, "r", encoding="utf-8") as infile, open(
+    with open(input_path, "r", encoding="utf-8") as infile, open(
         labels_path, "w", encoding="utf-8", newline=""
     ) as outfile:
-        reader = csv.DictReader(infile)
+        reader = csv.DictReader(infile, delimiter=get_delimiter(input_path))
         if reader.fieldnames is None:
-            raise ValueError("Input CSV is missing a header row.")
+            raise ValueError("Input file is missing a header row.")
 
-        smiles_column = resolve_column(
-            reader.fieldnames,
-            smiles_column,
-            SMILES_COLUMN_CANDIDATES,
-        )
-        name_column = None
-        for candidate in NAME_COLUMN_CANDIDATES:
-            if candidate in reader.fieldnames:
-                name_column = candidate
-                break
+        smiles_column = resolve_smiles_column(reader.fieldnames, smiles_column)
 
         writer = csv.writer(outfile)
-        if name_column:
-            writer.writerow(["image", "smiles", "name"])
-        else:
-            writer.writerow(["image", "smiles"])
+        writer.writerow(["image", "smiles"])
 
         for row in reader:
             count_total += 1
-            smiles = row.get(smiles_column, "").strip()
+            smiles = get_value(row, smiles_column)
 
             if not smiles:
                 count_invalid += 1
                 continue
 
-            # RDKit returns None when the SMILES cannot be parsed as a molecule.
             mol = Chem.MolFromSmiles(smiles)
-
             if mol is None:
                 count_invalid += 1
                 continue
 
-            # Number images in the order they are successfully generated.
             image_name = f"img_{count_valid:04d}.png"
             image_path = os.path.join(images_dir, image_name)
 
-            # RDKit draws a standard 2D structure image for the molecule.
-            img = Draw.MolToImage(mol)
-            img.save(image_path)
-
-            # labels.csv is the connection between each image and its SMILES.
-            if name_column:
-                writer.writerow([image_name, smiles, row.get(name_column, "").strip()])
-            else:
-                writer.writerow([image_name, smiles])
+            Draw.MolToImage(mol).save(image_path)
+            writer.writerow([image_name, smiles])
             count_valid += 1
 
     print("Dataset generation complete.")
-    print("Input:", input_csv)
+    print("Input:", input_path)
     print("Output:", output_dir)
     print("SMILES column:", smiles_column)
     print("Total:", count_total)
@@ -147,9 +134,93 @@ def generate_dataset(input_csv, smiles_column, output_dir):
     print("Invalid:", count_invalid)
 
 
+def generate_labels_for_existing_images(input_path, smiles_column, output_dir):
+    """Convert a CSV/TSV file into labels.csv for existing images."""
+    from rdkit import Chem
+
+    images_dir = os.path.join(output_dir, "images")
+    labels_path = os.path.join(output_dir, "labels.csv")
+
+    if not os.path.isdir(images_dir):
+        raise FileNotFoundError(
+            f"Expected image folder not found: {images_dir}"
+        )
+
+    image_lookup = {
+        os.path.splitext(filename)[0]: filename
+        for filename in os.listdir(images_dir)
+        if filename.lower().endswith((".png", ".jpg", ".jpeg"))
+    }
+
+    count_total = 0
+    count_written = 0
+    count_missing_image = 0
+    count_missing_smiles = 0
+    count_invalid_smiles = 0
+
+    with open(input_path, "r", encoding="utf-8") as infile, open(
+        labels_path, "w", encoding="utf-8", newline=""
+    ) as outfile:
+        reader = csv.DictReader(infile, delimiter=get_delimiter(input_path))
+        if reader.fieldnames is None:
+            raise ValueError("Input file is missing a header row.")
+
+        smiles_column = resolve_smiles_column(reader.fieldnames, smiles_column)
+        image_column = resolve_image_column(reader.fieldnames, smiles_column)
+
+        writer = csv.writer(outfile)
+        writer.writerow(["image", "smiles"])
+
+        for row in reader:
+            count_total += 1
+            smiles = get_value(row, smiles_column)
+            image_value = get_value(row, image_column)
+
+            if not smiles:
+                count_missing_smiles += 1
+                continue
+
+            # Keep labels.csv compatible with the validator/evaluator by
+            # dropping rows RDKit cannot parse.
+            if Chem.MolFromSmiles(smiles) is None:
+                count_invalid_smiles += 1
+                continue
+
+            image_name = match_existing_image(image_value, image_lookup)
+            if image_name is None:
+                count_missing_image += 1
+                continue
+
+            writer.writerow([image_name, smiles])
+            count_written += 1
+
+    print("Existing-image label generation complete.")
+    print("Input:", input_path)
+    print("Output:", labels_path)
+    print("Image column:", image_column)
+    print("SMILES column:", smiles_column)
+    print("Total:", count_total)
+    print("Written:", count_written)
+    print("Missing image:", count_missing_image)
+    print("Missing SMILES:", count_missing_smiles)
+    print("Invalid SMILES:", count_invalid_smiles)
+
+
+def match_existing_image(image_value, image_lookup):
+    """Match an image id or filename to a file in images/."""
+    if not image_value:
+        return None
+
+    image_filename = os.path.basename(image_value)
+    image_stem, image_ext = os.path.splitext(image_filename)
+
+    if image_ext:
+        return image_lookup.get(image_stem)
+
+    return image_lookup.get(image_filename)
+
+
 if __name__ == "__main__":
-    # Command-line arguments let the same script generate any dataset folder
-    # that follows the expected labels.csv/images layout.
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="pubchem")
     parser.add_argument("--input", default=None)
@@ -159,13 +230,19 @@ if __name__ == "__main__":
 
     paths = get_dataset_paths(
         dataset_name=args.dataset,
-        input_csv=args.input,
+        input_path=args.input,
         output_dir=args.output,
-        smiles_column=args.smiles_column,
     )
 
-    generate_dataset(
-        input_csv=paths["input_csv"],
-        smiles_column=paths["smiles_column"],
-        output_dir=paths["output_dir"],
-    )
+    if paths["existing_images"]:
+        generate_labels_for_existing_images(
+            input_path=paths["input_path"],
+            smiles_column=args.smiles_column,
+            output_dir=paths["output_dir"],
+        )
+    else:
+        generate_dataset(
+            input_path=paths["input_path"],
+            smiles_column=args.smiles_column,
+            output_dir=paths["output_dir"],
+        )

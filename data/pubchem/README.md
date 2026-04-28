@@ -1,34 +1,19 @@
-## Reproducing Dataset
+# PubChem
 
-Run all commands from the project root.
+Use PubChem as the training dataset.
 
-1. Download PubChem subset:
-
-You can change the CID range in the curl command to change the dataset size.
+Run from the repository root:
 
 ```bash
+mkdir -p data/pubchem
 curl "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/$(seq -s, 1000 1399)/property/ConnectivitySMILES/CSV" -o data/pubchem/raw.csv
-```
-
-2. Generate images + labels:
-
-```bash
-python3 -m scripts.generate_dataset --dataset pubchem
-```
-
-3. Create train/test split:
-
-```bash
+python3 -m scripts.generate_dataset --dataset pubchem --smiles-column ConnectivitySMILES
 python3 -m scripts.split_pubchem --dataset pubchem
-```
-
-4. Validate:
-
-```bash
 python3 -m scripts.validate_dataset --dataset pubchem
 ```
 
-## Current Role
+Then train:
 
-This folder contains the mixed PubChem subset currently used for baseline
-experiments.
+```bash
+python3 -m src.train_sequence --dataset pubchem --decoder-type gru
+```

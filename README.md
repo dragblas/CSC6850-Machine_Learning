@@ -1,167 +1,107 @@
 # CSC6850 Machine Learning
 
-Optical Chemical Structure Recognition baseline project.
-
-This repo currently focuses on CNN recurrent image-to-SMILES sequence baselines:
-
 ```text
 chemical image -> CNN encoder -> RNN/GRU/LSTM decoder -> SMILES tokens
 ```
 
-This model is closer to the OCSR formulation used by SwinOCSR because it
-generates a molecular string token-by-token rather than choosing a molecule ID.
+## Setup
 
-## Structure
-
-```text
-src/
-  data.py       dataset loading, transforms, splitting, validation
-  evaluate.py   exact and canonical SMILES metrics
-  smiles_tokenizer.py
-  sequence_data.py
-  seq_model.py
-  train_sequence.py
-
-scripts/
-  generate_dataset.py
-  evaluate_dataset.py
-  run_hyperparameter_grid.py
-  split_pubchem.py
-  validate_dataset.py
-```
-
-## How to Run
-
-Run all commands from the project root:
-
-```bash
-cd /Users/dragblas/Coding/CSC6850-Machine_Learning
-```
-
-Install dependencies:
+Run commands from the repository root:
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-Download the PubChem raw CSV:
+## PubChem Training Data
+
+Download, generate, split, and validate PubChem:
 
 ```bash
 mkdir -p data/pubchem
 curl "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/$(seq -s, 1000 1399)/property/ConnectivitySMILES/CSV" -o data/pubchem/raw.csv
-```
-
-Generate the PubChem image dataset from `data/pubchem/raw.csv`:
-
-```bash
-python3 -m scripts.generate_dataset --dataset pubchem
-```
-
-Create the 80/20 train/test split:
-
-```bash
-python3 -m scripts.split_pubchem --dataset pubchem
-```
-
-Validate the dataset:
-
-```bash
-python3 -m scripts.validate_dataset --dataset pubchem
-```
-
-Script flag summary:
-
-```text
-scripts.generate_dataset
-  --dataset         Dataset name. Supported defaults: pubchem, epa
-  --input           Optional raw CSV override
-  --output          Optional output folder override
-  --smiles-column   Optional SMILES column override
-
-scripts.split_pubchem
-  --dataset         Dataset folder under data/. Default: pubchem
-  --train-ratio     Fraction of labels used for training. Default: 0.8
-  --seed            Random seed for reproducible splits. Default: 42
-
-scripts.validate_dataset
-  --dataset         Dataset folder under data/. Default: pubchem
-
-scripts.evaluate_dataset
-  --dataset         External dataset folder under data/. Default: epa
-  --checkpoint      Saved model checkpoint. Default: sequence_baseline.pth
-  --batch-size      Number of samples per evaluation batch. Default: 16
-  --output          Metrics CSV path. Default: results/external_metrics.csv
-```
-
-Full from-scratch workflow:
-
-```bash
-mkdir -p data/pubchem
-curl "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/$(seq -s, 1000 1399)/property/ConnectivitySMILES/CSV" -o data/pubchem/raw.csv
-python3 -m scripts.generate_dataset --dataset pubchem
+python3 -m scripts.generate_dataset --dataset pubchem --smiles-column ConnectivitySMILES
 python3 -m scripts.split_pubchem --dataset pubchem
 python3 -m scripts.validate_dataset --dataset pubchem
-python3 -m src.train_sequence
 ```
 
-Train and evaluate the default CNN-GRU image-to-SMILES sequence baseline:
+## Train
+
+Train one decoder:
 
 ```bash
-python3 -m src.train_sequence
-```
-
-Train on a specific dataset or hyperparameter setting:
-
-```bash
-python3 -m src.train_sequence --dataset pubchem --epochs 10 --learning-rate 0.001 --hidden-dim 256 --embedding-dim 128 --decoder-type gru
-```
-
-`src.train_sequence` flags:
-
-```text
---dataset         Dataset folder under data/ to use. Default: pubchem
---batch-size      Number of samples per batch before a weight update. Default: 16
---epochs          Number of full passes over the training set. Default: 10
---learning-rate   Optimizer step size for weight updates. Default: 0.001
---hidden-dim      Recurrent decoder hidden-state size. Default: 256
---embedding-dim   SMILES token embedding size. Default: 128
---decoder-type    Recurrent decoder type: rnn, gru, or lstm. Default: gru
-```
-
-Train the three decoder model variants:
-
-```bash
-python3 -m src.train_sequence --dataset pubchem --decoder-type rnn
 python3 -m src.train_sequence --dataset pubchem --decoder-type gru
-python3 -m src.train_sequence --dataset pubchem --decoder-type lstm
 ```
 
-Run a small hyperparameter grid:
+Train all decoder types with the grid script:
 
 ```bash
-python3 -m scripts.run_hyperparameter_grid --dataset pubchem --epochs 10
+python3 -m scripts.run_hyperparameter_grid --dataset pubchem --decoder-type rnn,gru,lstm
 ```
 
-Run the three decoder types with the same hyperparameter setting:
-
-```bash
-python3 -m scripts.run_hyperparameter_grid --dataset pubchem --epochs 10 --learning-rates 0.001 --hidden-dims 512 --embedding-dims 128 --decoder-types rnn,gru,lstm
-```
-
-Evaluate a trained PubChem checkpoint on EPA as an external dataset:
-
-```bash
-python3 -m scripts.evaluate_dataset --dataset epa --checkpoint sequence_baseline.pth
-```
-
-Sequence training saves:
+Checkpoints save as:
 
 ```text
-sequence_baseline.pth
+sequence_rnn.pth
+sequence_gru.pth
+sequence_lstm.pth
+```
+
+Training metrics append to:
+
+```text
 results/sequence_metrics.csv
+```
+
+## External Evaluation
+
+After you train on PubChem, evaluate EPA or DECIMER:
+
+```bash
+python3 -m scripts.evaluate_dataset --dataset epa
+python3 -m scripts.evaluate_dataset --dataset decimer
+```
+
+External metrics append to:
+
+```text
 results/external_metrics.csv
 ```
 
-`results/sequence_metrics.csv` is append-only. Each training run adds one row
-with the dataset, metrics, and hyperparameters so grid-search results stay in
-one table.
+## Useful Flags
+
+```text
+src.train_sequence
+  --dataset         dataset folder under data/
+  --batch-size      samples per training batch
+  --epochs          full passes through the training set
+  --learning-rate   optimizer step size
+  --hidden-dim      recurrent decoder hidden size
+  --embedding-dim   SMILES token embedding size
+  --decoder-type    rnn, gru, or lstm
+  --save-path       optional checkpoint filename
+
+scripts.run_hyperparameter_grid
+  --dataset         dataset folder under data/
+  --learning-rates  comma-separated learning rates
+  --hidden-dims     comma-separated hidden sizes
+  --embedding-dims  comma-separated embedding sizes
+  --decoder-type    one decoder type or comma-separated decoder types
+  --epochs          epochs per run
+  --batch-size      samples per batch
+
+scripts.generate_dataset
+  --dataset        pubchem, epa, or decimer
+  --input          optional raw CSV/TSV path
+  --output         optional dataset output folder
+  --smiles-column  optional override; otherwise uses SMILES or smiles
+
+scripts.evaluate_dataset
+  --dataset        epa or decimer
+  --decoder-type   rnn, gru, or lstm; default is gru
+  --checkpoint     optional checkpoint override
+  --batch-size     samples per evaluation batch
+  --limit          optional number of rows to evaluate
+  --output         optional metrics CSV path
+```
+
+See the dataset READMEs under `data/` for EPA and DECIMER download steps.

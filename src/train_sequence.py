@@ -28,10 +28,14 @@ def train_sequence_model(
     hidden_dim=256,
     embedding_dim=128,
     decoder_type="gru",
+    save_path=None,
 ):
     """
     function too train sequence model and evaluate on test set 
     """
+
+    if save_path is None:
+        save_path = get_default_checkpoint_path(decoder_type)
 
     dataset_dir = os.path.join("data", dataset_name)
     image_dir = os.path.join(dataset_dir, "images")
@@ -165,9 +169,20 @@ def train_sequence_model(
             "decoder_type": decoder_type,
             "dataset_name": dataset_name,
         },
-        "sequence_baseline.pth",
+        save_path,
     )
-    print("Saved model to sequence_baseline.pth")
+    print("Saved model to", save_path)
+
+
+def get_default_checkpoint_path(decoder_type):
+    """
+    Build a default checkpoint filename from the decoder type.
+
+    This prevents RNN, GRU, and LSTM runs from overwriting each other when the
+    user trains all three model variants.
+    """
+
+    return f"sequence_{decoder_type}.pth"
 
 
 def evaluate_sequence_model(model, test_loader, tokenizer, device, max_length):
@@ -302,6 +317,11 @@ if __name__ == "__main__":
         choices=["rnn", "gru", "lstm"],
         default="gru",
     )
+    parser.add_argument(
+        "--save-path",
+        default=None,
+        help="Optional checkpoint path. Defaults to sequence_<decoder-type>.pth.",
+    )
     args = parser.parse_args()
 
     train_sequence_model(
@@ -312,4 +332,5 @@ if __name__ == "__main__":
         hidden_dim=args.hidden_dim,
         embedding_dim=args.embedding_dim,
         decoder_type=args.decoder_type,
+        save_path=args.save_path,
     )

@@ -8,6 +8,7 @@ PubChem and the new dataset is only being used for testing.
 import argparse
 import csv
 import os
+import tempfile
 
 import torch
 from torch.utils.data import DataLoader
@@ -18,6 +19,11 @@ from src.seq_model import ImageToSmilesModel
 from src.sequence_data import SmilesSequenceDataset
 from src.smiles_tokenizer import SmilesTokenizer
 from src.train_sequence import greedy_decode
+
+
+def get_default_checkpoint_path(decoder_type):
+    """Build the default checkpoint path for a decoder type."""
+    return f"sequence_{decoder_type}.pth"
 
 
 def get_device():
@@ -40,6 +46,7 @@ def save_external_metrics(metrics, output_path):
         "eval_dataset",
         "decoder_type",
         "batch_size",
+        "limit",
         "test_token_accuracy",
         "exact_match",
         "canonical_match",
@@ -66,11 +73,16 @@ def save_external_metrics(metrics, output_path):
 
 def evaluate_dataset(
     dataset_name="epa",
-    checkpoint_path="sequence_baseline.pth",
+    checkpoint_path=None,
+    decoder_type="gru",
     batch_size=16,
+    limit=None,
     output_path="results/external_metrics.csv",
 ):
-    """Load a trained checkpoint and evaluate it on one full dataset."""
+    """Load a trained checkpoint and evaluate it on a dataset."""
+    if checkpoint_path is None:
+        checkpoint_path = get_default_checkpoint_path(decoder_type)
+
     dataset_dir = os.path.join("data", dataset_name)
     image_dir = os.path.join(dataset_dir, "images")
     label_path = os.path.join(dataset_dir, "labels.csv")
@@ -79,6 +91,7 @@ def evaluate_dataset(
     print("Using device:", device)
     print("Evaluation dataset:", dataset_name)
     print("Checkpoint:", checkpoint_path)
+    print("Limit:", limit if limit is not None else "all")
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
     tokenizer = SmilesTokenizer(checkpoint["token_to_idx"])
@@ -97,9 +110,29 @@ def evaluate_dataset(
     model.eval()
 
     rows = load_label_rows(label_path)
+    if limit is not None:
+        rows = rows[:limit]
+
+    eval_label_path = label_path
+    temp_label_file = None
+
+    if limit is not None:
+        temp_label_file = tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="",
+            suffix=".csv",
+            delete=False,
+        )
+        writer = csv.DictWriter(temp_label_file, fieldnames=["image", "smiles"])
+        writer.writeheader()
+        writer.writerows(rows)
+        temp_label_file.close()
+        eval_label_path = temp_label_file.name
+
     dataset = SmilesSequenceDataset(
         image_dir=image_dir,
-        label_path=label_path,
+        label_path=eval_label_path,
         tokenizer=tokenizer,
         max_length=max_length,
         transform=get_default_transform(),
@@ -112,31 +145,35 @@ def evaluate_dataset(
     total_tokens = 0
     row_index = 0
 
-    with torch.no_grad():
-        for images, decoder_input, target in loader:
-            images = images.to(device)
-            decoder_input = decoder_input.to(device)
-            target = target.to(device)
+    try:
+        with torch.no_grad():
+            for images, decoder_input, target in loader:
+                images = images.to(device)
+                decoder_input = decoder_input.to(device)
+                target = target.to(device)
 
-            # Teacher-forced token accuracy shows whether the model scores the
-            # correct next tokens when given the correct previous tokens.
-            logits = model(images, decoder_input)
-            predicted_tokens = logits.argmax(dim=-1)
-            mask = target != tokenizer.pad_idx
-            correct_tokens += ((predicted_tokens == target) & mask).sum().item()
-            total_tokens += mask.sum().item()
+                # Teacher-forced token accuracy shows whether the model scores
+                # the correct next tokens when given correct previous tokens.
+                logits = model(images, decoder_input)
+                predicted_tokens = logits.argmax(dim=-1)
+                mask = target != tokenizer.pad_idx
+                correct_tokens += ((predicted_tokens == target) & mask).sum().item()
+                total_tokens += mask.sum().item()
 
-            # Greedy decoding simulates real inference on the external images.
-            generated = greedy_decode(model, images, tokenizer, device, max_length)
-            batch_predictions = [tokenizer.decode(ids) for ids in generated]
-            batch_targets = [
-                row["smiles"]
-                for row in rows[row_index: row_index + len(batch_predictions)]
-            ]
+                # Greedy decoding simulates real inference on external images.
+                generated = greedy_decode(model, images, tokenizer, device, max_length)
+                batch_predictions = [tokenizer.decode(ids) for ids in generated]
+                batch_targets = [
+                    row["smiles"]
+                    for row in rows[row_index: row_index + len(batch_predictions)]
+                ]
 
-            predictions.extend(batch_predictions)
-            targets.extend(batch_targets)
-            row_index += len(batch_predictions)
+                predictions.extend(batch_predictions)
+                targets.extend(batch_targets)
+                row_index += len(batch_predictions)
+    finally:
+        if temp_label_file is not None:
+            os.remove(temp_label_file.name)
 
     token_accuracy = correct_tokens / total_tokens if total_tokens > 0 else 0.0
     exact_acc, _ = exact_match(predictions, targets)
@@ -161,6 +198,7 @@ def evaluate_dataset(
         "eval_dataset": dataset_name,
         "decoder_type": decoder_type,
         "batch_size": batch_size,
+        "limit": limit if limit is not None else "",
         "test_token_accuracy": token_accuracy,
         "exact_match": exact_acc,
         "canonical_match": canonical_acc,
@@ -179,14 +217,27 @@ def evaluate_dataset(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", default="epa")
-    parser.add_argument("--checkpoint", default="sequence_baseline.pth")
+    parser.add_argument(
+        "--decoder-type",
+        choices=["rnn", "gru", "lstm"],
+        default="gru",
+        help="Decoder checkpoint to use when --checkpoint is not provided.",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        default=None,
+        help="Optional checkpoint override. Defaults to sequence_<decoder-type>.pth.",
+    )
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--output", default="results/external_metrics.csv")
     args = parser.parse_args()
 
     evaluate_dataset(
         dataset_name=args.dataset,
         checkpoint_path=args.checkpoint,
+        decoder_type=args.decoder_type,
         batch_size=args.batch_size,
+        limit=args.limit,
         output_path=args.output,
     )

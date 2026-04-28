@@ -34,13 +34,12 @@ class SmilesSequenceDataset:
         if self.transform:
             image = self.transform(image)
 
-        # Teacher forcing setup:
         # decoder_input: <START> C C O
         # target:        C C O <END>
         decoder_input = self.tokenizer.encode(sample["smiles"], add_start=True)
         target = self.tokenizer.encode(sample["smiles"], add_end=True)
 
-        # Pad all sequences to the same length so PyTorch can batch them.
+        # Pad all sequences to the same length for batching
         decoder_input = pad_sequence(
             decoder_input,
             max_length=self.max_length,
