@@ -1,6 +1,6 @@
 """
 functions to train and evaluate a model that generates SMILES sequence from an image
-Uses a CNN encoder and GRU decoder 
+Uses a CNN encoder and recurrent decoder
 Model uses cross entropy loss 
 """
 
@@ -27,6 +27,7 @@ def train_sequence_model(
     learning_rate=0.001,
     hidden_dim=256,
     embedding_dim=128,
+    decoder_type="gru",
 ):
     """
     function too train sequence model and evaluate on test set 
@@ -54,6 +55,7 @@ def train_sequence_model(
     print("Max sequence length:", max_length)
     print("Hidden dim:", hidden_dim)
     print("Embedding dim:", embedding_dim)
+    print("Decoder type:", decoder_type)
     print("Learning rate:", learning_rate)
 
     transform = get_default_transform()
@@ -81,6 +83,7 @@ def train_sequence_model(
         vocab_size=len(tokenizer),
         hidden_dim=hidden_dim,
         embedding_dim=embedding_dim,
+        decoder_type=decoder_type,
     ).to(device)
 
     # Ignore sequences with <PAD> 
@@ -138,8 +141,9 @@ def train_sequence_model(
         device=device,
         max_length=max_length,
     )
-    metrics["model"] = "CNN-GRU Sequence"
+    metrics["model"] = f"CNN-{decoder_type.upper()} Sequence"
     metrics["dataset"] = dataset_name
+    metrics["decoder_type"] = decoder_type
     metrics["train_token_accuracy"] = final_train_token_acc
     metrics["vocab_size"] = len(tokenizer)
     metrics["max_length"] = max_length
@@ -158,6 +162,7 @@ def train_sequence_model(
             "max_length": max_length,
             "hidden_dim": hidden_dim,
             "embedding_dim": embedding_dim,
+            "decoder_type": decoder_type,
             "dataset_name": dataset_name,
         },
         "sequence_baseline.pth",
@@ -252,6 +257,7 @@ def save_metrics(metrics, output_path):
     fieldnames = [
         "model",
         "dataset",
+        "decoder_type",
         "epochs",
         "batch_size",
         "learning_rate",
@@ -291,6 +297,11 @@ if __name__ == "__main__":
     parser.add_argument("--learning-rate", type=float, default=0.001) # step size for updating model weights
     parser.add_argument("--hidden-dim", type=int, default=256) # size of hidden layer in GRU decoder
     parser.add_argument("--embedding-dim", type=int, default=128) # size of token embedding vectors 
+    parser.add_argument(
+        "--decoder-type",
+        choices=["rnn", "gru", "lstm"],
+        default="gru",
+    )
     args = parser.parse_args()
 
     train_sequence_model(
@@ -300,4 +311,5 @@ if __name__ == "__main__":
         learning_rate=args.learning_rate,
         hidden_dim=args.hidden_dim,
         embedding_dim=args.embedding_dim,
+        decoder_type=args.decoder_type,
     )

@@ -1,5 +1,5 @@
 """
-Evaluate a saved CNN-GRU checkpoint on an external dataset.
+Evaluate a saved CNN-RNN/CNN-GRU/CNN-LSTM checkpoint on an external dataset.
 
 Use this for datasets like EPA or DECIMER when the model was trained on
 PubChem and the new dataset is only being used for testing.
@@ -38,6 +38,7 @@ def save_external_metrics(metrics, output_path):
         "checkpoint",
         "train_dataset",
         "eval_dataset",
+        "decoder_type",
         "batch_size",
         "test_token_accuracy",
         "exact_match",
@@ -84,11 +85,13 @@ def evaluate_dataset(
     max_length = checkpoint["max_length"]
     hidden_dim = checkpoint["hidden_dim"]
     embedding_dim = checkpoint["embedding_dim"]
+    decoder_type = checkpoint.get("decoder_type", "gru")
 
     model = ImageToSmilesModel(
         vocab_size=len(tokenizer),
         hidden_dim=hidden_dim,
         embedding_dim=embedding_dim,
+        decoder_type=decoder_type,
     ).to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
@@ -152,10 +155,11 @@ def evaluate_dataset(
         print()
 
     metrics = {
-        "model": "CNN-GRU Sequence",
+        "model": f"CNN-{decoder_type.upper()} Sequence",
         "checkpoint": checkpoint_path,
         "train_dataset": checkpoint.get("dataset_name", ""),
         "eval_dataset": dataset_name,
+        "decoder_type": decoder_type,
         "batch_size": batch_size,
         "test_token_accuracy": token_accuracy,
         "exact_match": exact_acc,

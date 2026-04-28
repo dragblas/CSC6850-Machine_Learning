@@ -2,10 +2,10 @@
 
 Optical Chemical Structure Recognition baseline project.
 
-This repo currently focuses on a CNN-GRU image-to-SMILES sequence baseline:
+This repo currently focuses on CNN recurrent image-to-SMILES sequence baselines:
 
 ```text
-chemical image -> CNN encoder -> GRU decoder -> SMILES tokens
+chemical image -> CNN encoder -> RNN/GRU/LSTM decoder -> SMILES tokens
 ```
 
 This model is closer to the OCSR formulation used by SwinOCSR because it
@@ -104,7 +104,7 @@ python3 -m scripts.validate_dataset --dataset pubchem
 python3 -m src.train_sequence
 ```
 
-Train and evaluate the CNN-GRU image-to-SMILES sequence baseline:
+Train and evaluate the default CNN-GRU image-to-SMILES sequence baseline:
 
 ```bash
 python3 -m src.train_sequence
@@ -113,7 +113,7 @@ python3 -m src.train_sequence
 Train on a specific dataset or hyperparameter setting:
 
 ```bash
-python3 -m src.train_sequence --dataset pubchem --epochs 10 --learning-rate 0.001 --hidden-dim 256 --embedding-dim 128
+python3 -m src.train_sequence --dataset pubchem --epochs 10 --learning-rate 0.001 --hidden-dim 256 --embedding-dim 128 --decoder-type gru
 ```
 
 `src.train_sequence` flags:
@@ -123,14 +123,29 @@ python3 -m src.train_sequence --dataset pubchem --epochs 10 --learning-rate 0.00
 --batch-size      Number of samples per batch before a weight update. Default: 16
 --epochs          Number of full passes over the training set. Default: 10
 --learning-rate   Optimizer step size for weight updates. Default: 0.001
---hidden-dim      GRU hidden-state size. Default: 256
+--hidden-dim      Recurrent decoder hidden-state size. Default: 256
 --embedding-dim   SMILES token embedding size. Default: 128
+--decoder-type    Recurrent decoder type: rnn, gru, or lstm. Default: gru
+```
+
+Train the three decoder model variants:
+
+```bash
+python3 -m src.train_sequence --dataset pubchem --decoder-type rnn
+python3 -m src.train_sequence --dataset pubchem --decoder-type gru
+python3 -m src.train_sequence --dataset pubchem --decoder-type lstm
 ```
 
 Run a small hyperparameter grid:
 
 ```bash
 python3 -m scripts.run_hyperparameter_grid --dataset pubchem --epochs 10
+```
+
+Run the three decoder types with the same hyperparameter setting:
+
+```bash
+python3 -m scripts.run_hyperparameter_grid --dataset pubchem --epochs 10 --learning-rates 0.001 --hidden-dims 512 --embedding-dims 128 --decoder-types rnn,gru,lstm
 ```
 
 Evaluate a trained PubChem checkpoint on EPA as an external dataset:

@@ -1,5 +1,5 @@
 """
-CNN encoder + GRU decoder baseline for image-to-SMILES generation.
+CNN encoder + recurrent decoder baselines for image-to-SMILES generation.
 """
 
 import torch
@@ -26,7 +26,7 @@ class CNNEncoder(nn.Module):
 
             nn.AdaptiveAvgPool2d((1, 1)), 
         )
-        # Match the CNN feature size to the GRU hidden state size.
+        # Match the CNN feature size to the recurrent decoder hidden state size.
         self.projection = nn.Linear(256, hidden_dim)
 
     def forward(self, images):
@@ -37,7 +37,7 @@ class CNNEncoder(nn.Module):
 
 class ImageToSmilesModel(nn.Module):
     """
-    CNN encoder + GRU decoder for image-to-SMILES generation.
+    CNN encoder + RNN/GRU/LSTM decoder for image-to-SMILES generation.
     """
 
     def __init__(
@@ -45,14 +45,25 @@ class ImageToSmilesModel(nn.Module):
         vocab_size,
         hidden_dim=256,
         embedding_dim=128,
+        decoder_type="gru",
     ):
         super().__init__()
+
+        self.decoder_type = decoder_type.lower()
+        if self.decoder_type not in {"rnn", "gru", "lstm"}:
+            raise ValueError("decoder_type must be one of: rnn, gru, lstm")
 
         self.encoder = CNNEncoder(hidden_dim=hidden_dim) # class above where CNN processes the image and outputs a feature vector of size hidden_dim
 
         # TOKENS TO VECTORS
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.decoder = nn.GRU(
+
+        decoder_classes = {
+            "rnn": nn.RNN,
+            "gru": nn.GRU,
+            "lstm": nn.LSTM,
+        }
+        self.decoder = decoder_classes[self.decoder_type](
             input_size=embedding_dim,
             hidden_size=hidden_dim,
             batch_first=True,
@@ -65,7 +76,17 @@ class ImageToSmilesModel(nn.Module):
         initial_hidden = image_features.unsqueeze(0)
 
         embedded_tokens = self.embedding(decoder_input)
-        decoder_output, _ = self.decoder(embedded_tokens, initial_hidden)
+
+        # LSTM needs both hidden state and cell state. The CNN initializes the
+        # hidden state, and the cell state starts at zeros.
+        if self.decoder_type == "lstm":
+            initial_cell = torch.zeros_like(initial_hidden)
+            decoder_output, _ = self.decoder(
+                embedded_tokens,
+                (initial_hidden, initial_cell),
+            )
+        else:
+            decoder_output, _ = self.decoder(embedded_tokens, initial_hidden)
 
         # Output one vocabulary-sized score vector for each sequence position.
         return self.output(decoder_output)

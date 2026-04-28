@@ -1,24 +1,49 @@
+# Python caches
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments / local env files
 .env
-.venv
+.venv/
 venv/
 env/
 ENV/
 conda-meta/
+
+# Editor / OS files
 .vscode/*
 !.vscode/settings.json
-.ipynb_checkpoints/
-data/
+.DS_Store
+Thumbs.db
+
+# Personal project notes / report scratch files
+PROJECT_PROGRESS.txt
+PROJECT_REFERENCE.md
+
+# Generated datasets and downloaded raw data
+# Keep dataset README/setup files, but ignore generated images and CSV outputs.
+data/*/images/
+data/*/raw.csv
+data/*/*Batch-Search*.csv
+data/*/labels.csv
+data/*/train_labels.csv
+data/*/test_labels.csv
+!data/README.md
+!data/*/README.md
+!data/epa/chemical_names.txt
+
+# Training outputs
+results/
 models/
 checkpoints/
 *.pt
 *.pth
 *.ckpt
+
+# Temporary files
 *.log
 tmp/
 temp/
-.DS_Store
-Thumbs.db

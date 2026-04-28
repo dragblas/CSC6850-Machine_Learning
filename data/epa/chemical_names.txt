@@ -1,0 +1,101 @@
+benzene
+toluene
+phenol
+acetone
+ethanol
+methanol
+acetic acid
+formaldehyde
+chloroform
+aniline
+naphthalene
+caffeine
+aspirin
+ibuprofen
+atrazine
+glyphosate
+bisphenol A
+benzaldehyde
+styrene
+pyridine
+acetaminophen
+benzoic acid
+salicylic acid
+citric acid
+lactic acid
+glycerol
+glucose
+fructose
+sucrose
+urea
+thiourea
+ammonia
+hydrogen peroxide
+sodium chloride
+potassium chloride
+calcium chloride
+magnesium chloride
+sodium hydroxide
+potassium hydroxide
+sulfuric acid
+nitric acid
+hydrochloric acid
+phosphoric acid
+carbon tetrachloride
+dichloromethane
+trichloroethylene
+tetrachloroethylene
+vinyl chloride
+ethyl acetate
+butyl acetate
+diethyl ether
+dimethyl sulfoxide
+dimethylformamide
+acetonitrile
+hexane
+heptane
+octane
+cyclohexane
+cyclohexanol
+cyclohexanone
+ethylbenzene
+xylene
+o-xylene
+m-xylene
+p-xylene
+nitrobenzene
+chlorobenzene
+bromobenzene
+fluorobenzene
+iodobenzene
+2-chlorophenol
+4-chlorophenol
+2,4-dichlorophenol
+2,4,6-trichlorophenol
+catechol
+resorcinol
+hydroquinone
+anisole
+phenetole
+benzyl alcohol
+benzyl chloride
+benzyl bromide
+benzonitrile
+benzamide
+acetanilide
+nitromethane
+nitroethane
+formic acid
+propionic acid
+butyric acid
+valeric acid
+malonic acid
+succinic acid
+maleic acid
+fumaric acid
+oxalic acid
+tartaric acid
+glycine
+alanine
+serine
+cysteine
